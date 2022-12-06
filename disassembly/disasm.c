@@ -28,9 +28,9 @@ int main(const int argc, char ** argv) {
         printf("error: could not open %s\n", argv[1]);
         exit(1);
     }
-    fseek(file, 0 L, SEEK_END);
+    fseek(file, 0L, SEEK_END);
     int fsize = ftell(file);
-    fseek(file, 0 L, SEEK_SET);
+    fseek(file, 0L, SEEK_SET);
 
     unsigned char * buffer = malloc(fsize);
     fread(buffer, fsize, 1, file);
