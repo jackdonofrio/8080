@@ -47,7 +47,7 @@ int main(const int argc, char ** argv) {
 int disasm_op_8080(unsigned char * codebuffer, int pc, bool verbose) {
     unsigned char * instruction = & codebuffer[pc];
     int size = 1; // number of bytes in opcode
-    printf("pc: %04x ", pc);
+    printf("%04x ", pc);
     switch ( * instruction) // turn bytecode instruction into 8080
     {
     case 0x00:
@@ -57,7 +57,7 @@ int disasm_op_8080(unsigned char * codebuffer, int pc, bool verbose) {
         }
         break;
     case 0x01:
-        printf("LXI    B, #$%02x%02x", instruction[2], instruction[1]);
+        printf("LXI    B,#$%02x%02x", instruction[2], instruction[1]);
         if (verbose) {
             printf(" # loads 16-bit immediate val into reg pair BC (byte 3 ->B, byte 2 ->C)");
         }
@@ -110,7 +110,7 @@ int disasm_op_8080(unsigned char * codebuffer, int pc, bool verbose) {
         }
         break;
     case 0x0a:
-        printf("LDAX    B");
+        printf("LDAX   B");
         if (verbose) {
             printf(" # loads from memory at addr BC into reg A");
         }
