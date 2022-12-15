@@ -55,7 +55,9 @@ void INX_regpair(uint8_t* reg_1, uint8_t* reg_2);
 void DAD_regpair(uint8_t* reg_1, uint8_t* reg_2, emu_state_t* state);
 void DCX_regpair(uint8_t* reg_1, uint8_t* reg_2);
 void MOV(uint8_t* to, uint8_t* from);
-void ADD(uint8_t* reg, emu_state_t* state);
+void ADD(uint8_t reg, emu_state_t* state);
+void ADC(uint8_t reg, emu_state_t* state);
+void SUB(uint8_t reg, emu_state_t* state);
 
 int main(const int argc, char** argv)
 {
@@ -525,7 +527,80 @@ void emulate_op(emu_state_t* state)
 			MOV(&(state->a), &(state->a));
 			break;
 		case 0x80: // ADD B
-			ADD(&(state->b), state);
+			ADD(state->b, state);
+			break;
+		case 0x81: // ADD C
+			ADD(state->c, state);
+			break;
+		case 0x82: // ADD D
+			ADD(state->d, state);
+			break;
+		case 0x83: // ADD E
+			ADD(state->e, state);
+			break;
+		case 0x84: // ADD H
+			ADD(state->h, state);
+			break;
+		case 0x85: // ADD L
+			ADD(state->l, state);
+			break;
+		case 0x86: // ADD M
+			ADD(state->memory[join_regpair(state->h, state->l)], state);
+			break;
+		case 0x87: // ADD A
+			ADD(state->a, state);
+			break;
+		case 0x88: // ADC B
+			ADC(state->b, state);
+			break;
+		case 0x89: // ADC C
+			ADC(state->c, state);
+			break;
+		case 0x8a: // ADC D
+			ADC(state->d, state);
+			break;
+		case 0x8b: // ADC E
+			ADC(state->e, state);
+			break;
+		case 0x8c: // ADC H
+			ADC(state->h, state);
+			break;
+		case 0x8d: // ADC L
+			ADC(state->l, state);
+			break;
+		case 0x8e: // ADC M
+			ADC(state->memory[join_regpair(state->h, state->l)], state);
+			break;
+		case 0x8f: // ADC A
+			ADC(state->a, state);
+			break;
+		case 0x90: // SUB B
+			SUB(state->b, state);
+			break;
+		case 0x91: // SUB C
+			SUB(state->c, state);
+			break;
+		case 0x92: // SUB D
+			SUB(state->d, state);
+			break;
+		case 0x93: // SUB E
+			SUB(state->e, state);
+			break;
+		case 0x94: // SUB H
+			SUB(state->h, state);
+			break;
+		case 0x95: // SUB L
+			SUB(state->l, state);
+			break;
+		case 0x96: // SUB M
+			SUB(state->memory[join_regpair(state->h, state->l)], state);
+			break;
+		case 0x97: // SUB A
+			SUB(state->a, state);
+			break;
+		case 0x98: // SBB B
+			// TODO
+
 			break;
 		/* ... */
 	}
@@ -533,9 +608,34 @@ void emulate_op(emu_state_t* state)
 
 }
 
-void ADD(uint8_t* reg, emu_state_t* state)
+void SUB(uint8_t reg, emu_state_t* state)
 {
-	// TODO
+	uint16_t answer = state->a + (~(reg) + 1);
+	state->flags.zero = (answer & 0xff) == 0;
+	state->flags.sign = ((answer & 0x80)) != 0;
+	state->flags.carry = (answer > 0xff);
+	state->flags.parity = parity_8((uint8_t)(answer & 0xff));
+	state->a = answer & 0xff;
+}
+
+void ADC(uint8_t reg, emu_state_t* state)
+{
+	uint16_t answer = state->a + reg + state->flags.carry;
+	state->flags.zero = (answer & 0xff) == 0;
+	state->flags.sign = ((answer & 0x80)) != 0;
+	state->flags.carry = (answer > 0xff);
+	state->flags.parity = parity_8((uint8_t)(answer & 0xff));
+	state->a = answer & 0xff;
+}
+
+void ADD(uint8_t reg, emu_state_t* state)
+{
+	uint16_t answer = state->a + reg;
+	state->flags.zero = (answer & 0xff) == 0;
+	state->flags.sign = ((answer & 0x80)) != 0;
+	state->flags.carry = (answer > 0xff);
+	state->flags.parity = parity_8((uint8_t)(answer & 0xff));
+	state->a = answer & 0xff;
 }
 
 void MOV(uint8_t* to, uint8_t* from)
