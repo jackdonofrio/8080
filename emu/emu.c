@@ -41,20 +41,18 @@ typedef struct emu_state {
 } emu_state_t;
 
 
-
 void unrecognized_instruction(emu_state_t* state);
 void emulate_op(emu_state_t* state);
 uint16_t join_regpair(uint8_t reg_1, uint8_t reg_2);
 bool parity_8(uint8_t n);
 
-
 void INR_register(uint8_t* reg, emu_state_t* state);
 void DCR_register(uint8_t* reg, emu_state_t* state);
 void MVI_register(uint8_t* reg, uint8_t data, emu_state_t* state);
 void INX_regpair(uint8_t* reg_1, uint8_t* reg_2);
-void DAD_regpair(uint8_t* reg_1, uint8_t* reg_2, emu_state_t* state);
+void DAD_regpair(uint8_t reg_1, uint8_t reg_2, emu_state_t* state);
 void DCX_regpair(uint8_t* reg_1, uint8_t* reg_2);
-void MOV(uint8_t* to, uint8_t* from);
+void MOV(uint8_t* to, uint8_t from);
 void ADD(uint8_t reg, emu_state_t* state);
 void ADC(uint8_t reg, emu_state_t* state);
 void SUB(uint8_t reg, emu_state_t* state);
@@ -78,6 +76,7 @@ int main(const int argc, char** argv)
 void unrecognized_instruction(emu_state_t* state)
 {
 	if (state == NULL) {
+		fprintf(stderr, "Null state pointer\n");
 		return;
 	}
 	printf("instruction 0x%02x not recognized\n", state->memory[state->pc]);
@@ -87,6 +86,10 @@ void unrecognized_instruction(emu_state_t* state)
 
 void emulate_op(emu_state_t* state)
 {
+	if (state == NULL) {
+		fprintf(stderr, "Null state pointer\n");
+		exit(1);
+	}
 	unsigned char* instruction = &state->memory[state->pc];
 	unsigned char opcode = *instruction;
 	
@@ -150,7 +153,7 @@ void emulate_op(emu_state_t* state)
 			// // now extract H,L
 			// state->h = temp_32 >> 8;
 			// state->l = temp_32 & 0xff;
-			DAD_regpair(&(state->b), &(state->c), state);
+			DAD_regpair(state->b, state->c, state);
 			break;
 		case 0x0a: // LDAX B // A <- (BC)
 			state->a = state->memory[join_regpair(state->b, state->c)];
@@ -204,7 +207,7 @@ void emulate_op(emu_state_t* state)
 			break;
 		case 0x18: break;
 		case 0x19: // DAD D
-			DAD_regpair(&(state->d), &(state->e), state);
+			DAD_regpair(state->d, state->e, state);
 			break;
 		case 0x1a: // LDAX D
 			state->a = state->memory[join_regpair(state->d, state->e)];
@@ -256,7 +259,7 @@ void emulate_op(emu_state_t* state)
 			break;
 		case 0x28: break;
 		case 0x29: // DAD H
-			DAD_regpair(&(state->h), &(state->l), state);
+			DAD_regpair(state->h, state->l, state);
 			break;
 		case 0x2a: // LHLD adr
 			temp_16 = (instruction[2] << 8) | instruction[1];
@@ -335,196 +338,196 @@ void emulate_op(emu_state_t* state)
 			state->flags.carry = !state->flags.carry;
 			break;
 		case 0x40: // MOV B,B
-			MOV(&(state->b), &(state->b));
+			MOV(&(state->b), state->b);
 			break;
 		case 0x41: // MOV B,C
-			MOV(&(state->b), &(state->c));
+			MOV(&(state->b), state->c);
 			break;
 		case 0x42: // MOV B,D
-			MOV(&(state->b), &(state->d));
+			MOV(&(state->b), state->d);
 			break;
 		case 0x43: // MOV B,E
-			MOV(&(state->b), &(state->e));
+			MOV(&(state->b), state->e);
 			break;
 		case 0x44: // MOV B,H
-			MOV(&(state->b), &(state->h));
+			MOV(&(state->b), state->h);
 			break;
 		case 0x45: // MOV B,L
-			MOV(&(state->b), &(state->l));
+			MOV(&(state->b), state->l);
 			break;
 		case 0x46: // MOV B,M
-			MOV(&(state->b), &(state->memory[join_regpair(state->h, state->l)]));
+			MOV(&(state->b), state->memory[join_regpair(state->h, state->l)]);
 			break;
 		case 0x47: // MOV B,A
-			MOV(&(state->b), &(state->a));
+			MOV(&(state->b), state->a);
 			break;
 		case 0x48: // MOV C,B
-			MOV(&(state->c), &(state->b));
+			MOV(&(state->c), state->b);
 			break;
 		case 0x49: // MOV C,C
-			MOV(&(state->c), &(state->c));
+			MOV(&(state->c), state->c);
 			break;
 		case 0x4a: // MOV C,D
-			MOV(&(state->c), &(state->d));
+			MOV(&(state->c), state->d);
 			break;
 		case 0x4b: // MOV C,E
-			MOV(&(state->c), &(state->e));
+			MOV(&(state->c), state->e);
 			break;
 		case 0x4c: // MOV C,H
-			MOV(&(state->c), &(state->h));
+			MOV(&(state->c), state->h);
 			break;
 		case 0x4d: // MOV C,L
-			MOV(&(state->c), &(state->l));
+			MOV(&(state->c), state->l);
 			break;
 		case 0x4e: // MOV C,M
-			MOV(&(state->c), &(state->memory[join_regpair(state->h, state->l)]));
+			MOV(&(state->c), state->memory[join_regpair(state->h, state->l)]);
 			break;
 		case 0x4f: // MOV C,A
-			MOV(&(state->c), &(state->a));
+			MOV(&(state->c), state->a);
 			break;
 		case 0x50: // MOV D,B
-			MOV(&(state->d), &(state->b));
+			MOV(&(state->d), state->b);
 			break;
 		case 0x51: // MOV D,C
-			MOV(&(state->d), &(state->c));
+			MOV(&(state->d), state->c);
 			break;
 		case 0x52: // MOV D,D
-			MOV(&(state->d), &(state->d));
+			MOV(&(state->d), state->d);
 			break;
 		case 0x53: // MOV D,E
-			MOV(&(state->d), &(state->e));
+			MOV(&(state->d), state->e);
 			break;
 		case 0x54: // MOV D,H
-			MOV(&(state->d), &(state->h));
+			MOV(&(state->d), state->h);
 			break;
 		case 0x55: // MOV D,L
-			MOV(&(state->d), &(state->l));
+			MOV(&(state->d), state->l);
 			break;
 		case 0x56: // MOV D,M
-			MOV(&(state->d), &(state->memory[join_regpair(state->h, state->l)]));
+			MOV(&(state->d), state->memory[join_regpair(state->h, state->l)]);
 			break;
 		case 0x57: // MOV D,A
-			MOV(&(state->d), &(state->a));
+			MOV(&(state->d), state->a);
 			break;
 		case 0x58: // MOV E,B
-			MOV(&(state->e), &(state->b));
+			MOV(&(state->e), state->b);
 			break;
 		case 0x59: // MOV E,C
-			MOV(&(state->e), &(state->c));
+			MOV(&(state->e), state->c);
 			break;
 		case 0x5a: // MOV E,D
-			MOV(&(state->e), &(state->d));
+			MOV(&(state->e), state->d);
 			break;
 		case 0x5b: // MOV E,E
-			MOV(&(state->e), &(state->e));
+			MOV(&(state->e), state->e);
 			break;
 		case 0x5c: // MOV E,H
-			MOV(&(state->e), &(state->h));
+			MOV(&(state->e), state->h);
 			break;
 		case 0x5d: // MOV E,L
-			MOV(&(state->e), &(state->l));
+			MOV(&(state->e), state->l);
 			break;
 		case 0x5e: // MOV E,M
-			MOV(&(state->e), &(state->memory[join_regpair(state->h, state->l)]));
+			MOV(&(state->e), state->memory[join_regpair(state->h, state->l)]);
 			break;
 		case 0x5f: // MOV E,A
-			MOV(&(state->e), &(state->a));
+			MOV(&(state->e), state->a);
 			break;
 		case 0x60: // MOV H,B
-			MOV(&(state->h), &(state->b));
+			MOV(&(state->h), state->b);
 			break;
 		case 0x61: // MOV H,C
-			MOV(&(state->h), &(state->c));
+			MOV(&(state->h), state->c);
 			break;
 		case 0x62: // MOV H,D
-			MOV(&(state->h), &(state->d));
+			MOV(&(state->h), state->d);
 			break;
 		case 0x63: // MOV H,E
-			MOV(&(state->h), &(state->e));
+			MOV(&(state->h), state->e);
 			break;
 		case 0x64: // MOV H,H
-			MOV(&(state->h), &(state->h));
+			MOV(&(state->h), state->h);
 			break;
 		case 0x65: // MOV H,L
-			MOV(&(state->h), &(state->l));
+			MOV(&(state->h), state->l);
 			break;
 		case 0x66: // MOV H,M
-			MOV(&(state->h), &(state->memory[join_regpair(state->h, state->l)]));
+			MOV(&(state->h), state->memory[join_regpair(state->h, state->l)]);
 			break;
 		case 0x67: // MOV H,A
-			MOV(&(state->h), &(state->a));
+			MOV(&(state->h), state->a);
 			break;
 		case 0x68: // MOV L,B
-			MOV(&(state->l), &(state->b));
+			MOV(&(state->l), state->b);
 			break;
 		case 0x69: // MOV L,C
-			MOV(&(state->l), &(state->c));
+			MOV(&(state->l), state->c);
 			break;
 		case 0x6a: // MOV L,D
-			MOV(&(state->l), &(state->d));
+			MOV(&(state->l), state->d);
 			break;
 		case 0x6b: // MOV L,E
-			MOV(&(state->l), &(state->e));
+			MOV(&(state->l), state->e);
 			break;
 		case 0x6c: // MOV L,H
-			MOV(&(state->l), &(state->h));
+			MOV(&(state->l), state->h);
 			break;
 		case 0x6d: // MOV L,L
-			MOV(&(state->l), &(state->l));
+			MOV(&(state->l), state->l);
 			break;
 		case 0x6e: // MOV L,M
-			MOV(&(state->l), &(state->memory[join_regpair(state->h, state->l)]));
+			MOV(&(state->l), state->memory[join_regpair(state->h, state->l)]);
 			break;
 		case 0x6f: // MOV L,A
-			MOV(&(state->l), &(state->a));
+			MOV(&(state->l), state->a);
 			break;
 		case 0x70: // MOV M,B
-			MOV(&(state->memory[join_regpair(state->h, state->l)]), &(state->b));
+			MOV(&(state->memory[join_regpair(state->h, state->l)]), state->b);
 			break;
 		case 0x71: // MOV M,C
-			MOV(&(state->memory[join_regpair(state->h, state->l)]), &(state->c));
+			MOV(&(state->memory[join_regpair(state->h, state->l)]), state->c);
 			break;
 		case 0x72: // MOV M,D
-			MOV(&(state->memory[join_regpair(state->h, state->l)]), &(state->d));
+			MOV(&(state->memory[join_regpair(state->h, state->l)]), state->d);
 			break;
 		case 0x73: // MOV M,E
-			MOV(&(state->memory[join_regpair(state->h, state->l)]), &(state->e));
+			MOV(&(state->memory[join_regpair(state->h, state->l)]), state->e);
 			break;
 		case 0x74: // MOV M,H
-			MOV(&(state->memory[join_regpair(state->h, state->l)]), &(state->h));
+			MOV(&(state->memory[join_regpair(state->h, state->l)]), state->h);
 			break;
 		case 0x75: // MOV M,L
-			MOV(&(state->memory[join_regpair(state->h, state->l)]), &(state->l));
+			MOV(&(state->memory[join_regpair(state->h, state->l)]), state->l);
 			break;
 		case 0x76: // MOV M,M
-			MOV(&(state->memory[join_regpair(state->h, state->l)]), &(state->memory[join_regpair(state->h, state->l)]));
+			MOV(&(state->memory[join_regpair(state->h, state->l)]), state->memory[join_regpair(state->h, state->l)]);
 			break;
 		case 0x77: // MOV M,A
-			MOV(&(state->memory[join_regpair(state->h, state->l)]), &state->a);
+			MOV(&(state->memory[join_regpair(state->h, state->l)]), state->a);
 			break;
 		case 0x78: // MOV A,B
-			MOV(&(state->a), &(state->b));
+			MOV(&(state->a), state->b);
 			break;
 		case 0x79: // MOV A,C
-			MOV(&(state->a), &(state->c));
+			MOV(&(state->a), state->c);
 			break;
 		case 0x7a: // MOV A,D
-			MOV(&(state->a), &(state->d));
+			MOV(&(state->a), state->d);
 			break;
 		case 0x7b: // MOV A,E
-			MOV(&(state->a), &(state->e));
+			MOV(&(state->a), state->e);
 			break;
 		case 0x7c: // MOV A,H
-			MOV(&(state->a), &(state->h));
+			MOV(&(state->a), state->h);
 			break;
 		case 0x7d: // MOV A,L
-			MOV(&(state->a), &(state->l));
+			MOV(&(state->a), state->l);
 			break;
 		case 0x7e: // MOV A,M
-			MOV(&(state->a), &(state->memory[join_regpair(state->h, state->l)]));
+			MOV(&(state->a), state->memory[join_regpair(state->h, state->l)]);
 			break;
 		case 0x7f: // MOV A,A
-			MOV(&(state->a), &(state->a));
+			MOV(&(state->a), state->a);
 			break;
 		case 0x80: // ADD B
 			ADD(state->b, state);
@@ -610,6 +613,10 @@ void emulate_op(emu_state_t* state)
 
 void SUB(uint8_t reg, emu_state_t* state)
 {
+	if (state == NULL) {
+		fprintf(stderr, "Null state pointer in SUB instruction\n");
+		exit(1);
+	}
 	uint16_t answer = state->a + (~(reg) + 1);
 	state->flags.zero = (answer & 0xff) == 0;
 	state->flags.sign = ((answer & 0x80)) != 0;
@@ -620,6 +627,10 @@ void SUB(uint8_t reg, emu_state_t* state)
 
 void ADC(uint8_t reg, emu_state_t* state)
 {
+	if (state == NULL) {
+		fprintf(stderr, "Null state pointer in ADC instruction\n");
+		exit(1);
+	}
 	uint16_t answer = state->a + reg + state->flags.carry;
 	state->flags.zero = (answer & 0xff) == 0;
 	state->flags.sign = ((answer & 0x80)) != 0;
@@ -630,6 +641,10 @@ void ADC(uint8_t reg, emu_state_t* state)
 
 void ADD(uint8_t reg, emu_state_t* state)
 {
+	if (state == NULL) {
+		fprintf(stderr, "Null state pointer in ADD instruction\n");
+		exit(1);
+	}
 	uint16_t answer = state->a + reg;
 	state->flags.zero = (answer & 0xff) == 0;
 	state->flags.sign = ((answer & 0x80)) != 0;
@@ -638,21 +653,37 @@ void ADD(uint8_t reg, emu_state_t* state)
 	state->a = answer & 0xff;
 }
 
-void MOV(uint8_t* to, uint8_t* from)
+void MOV(uint8_t* to, uint8_t from)
 {
-	*to = *from;
+	if (to == NULL) {
+		fprintf(stderr, "Null 'to' register pointer in MOV instruction\n");
+		exit(1);
+	}
+	*to = from;
 }
 
 void DCX_regpair(uint8_t* reg_1, uint8_t* reg_2)
 {
+	if (reg_1 == NULL) {
+		fprintf(stderr, "Null reg_1 pointer in DCX instruction\n");
+		exit(1);
+	}
+	if (reg_2 == NULL) {
+		fprintf(stderr, "Null reg_2 pointer in DCX instruction\n");
+		exit(1);
+	}
 	uint16_t temp = join_regpair(*reg_1, *reg_2) - 1;
 	*reg_1 = temp >> 8;
 	*reg_2 = temp & 0xff;
 }
 
-void DAD_regpair(uint8_t* reg_1, uint8_t* reg_2, emu_state_t* state)
+void DAD_regpair(uint8_t reg_1, uint8_t reg_2, emu_state_t* state)
 {
-	uint32_t temp = join_regpair(state->h, state->l) + join_regpair(*reg_1, *reg_2);
+	if (state == NULL) {
+		fprintf(stderr, "Null state pointer in DAD instruction\n");
+		exit(1);
+	}
+	uint32_t temp = join_regpair(state->h, state->l) + join_regpair(reg_1, reg_2);
 	state->flags.carry = (temp & 0xffff0000) > 0;
 	// now extract H,L
 	state->h = temp >> 8;
@@ -661,6 +692,14 @@ void DAD_regpair(uint8_t* reg_1, uint8_t* reg_2, emu_state_t* state)
 
 void INX_regpair(uint8_t* reg_1, uint8_t* reg_2)
 {
+	if (reg_1 == NULL) {
+		fprintf(stderr, "Null reg_1 pointer in INX instruction\n");
+		exit(1);
+	}
+	if (reg_2 == NULL) {
+		fprintf(stderr, "Null reg_2 pointer in INX instruction\n");
+		exit(1);
+	}
 	uint16_t temp = join_regpair(*reg_1, *reg_2) + 1;
 	*reg_1 = temp >> 8;
 	*reg_2 = temp & 0xff;
@@ -668,12 +707,28 @@ void INX_regpair(uint8_t* reg_1, uint8_t* reg_2)
 
 void MVI_register(uint8_t* reg, uint8_t data, emu_state_t* state)
 {
+	if (state == NULL) {
+		fprintf(stderr, "Null state pointer in MVI instruction\n");
+		exit(1);
+	}
+	if (reg == NULL) {
+		fprintf(stderr, "Null register pointer in MVI instruction at pc:0x%02x\n", state->pc);
+		exit(1);
+	}
 	*reg = data;
 	state->pc++;
 }
 
 void INR_register(uint8_t* reg, emu_state_t* state)
 {
+	if (state == NULL) {
+		fprintf(stderr, "Null state pointer in INR instruction\n");
+		exit(1);
+	}
+	if (reg == NULL) {
+		fprintf(stderr, "Null register pointer in INR instruction at pc:0x%02x\n", state->pc);
+		exit(1);
+	}
 	uint8_t temp = *reg + 1;
 	state->flags.zero = (temp == 0); // check if num = 0
 	state->flags.sign = (temp & 0x80); // check for MSB being set
@@ -684,6 +739,14 @@ void INR_register(uint8_t* reg, emu_state_t* state)
 
 void DCR_register(uint8_t* reg, emu_state_t* state)
 {
+	if (state == NULL) {
+		fprintf(stderr, "Null state pointer in DCR instruction\n");
+		exit(1);
+	}
+	if (reg == NULL) {
+		fprintf(stderr, "Null register pointer in DCR instruction at pc:0x%02x\n", state->pc);
+		exit(1);
+	}
 	uint8_t temp = *reg - 1;
 	state->flags.zero = (temp == 0);
 	state->flags.sign = (temp & 0x80);
