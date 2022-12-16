@@ -3,8 +3,6 @@
 8080 Emulator
 
 TODO:
-	finish func for decoding/execution
-		create general functions for similar ops
 	flesh out algorithm for emulation
 		fetch
 		decode   ] these two are done in func described above 
@@ -16,6 +14,7 @@ TODO:
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include "disasm.h"
 
 typedef struct flag_set {
 	uint8_t zero;
@@ -41,6 +40,8 @@ typedef struct emu_state {
 	uint8_t int_enable;	
 } emu_state_t;
 
+emu_state_t* new_state(void);
+void delete_state(emu_state_t*);
 
 void unrecognized_instruction(emu_state_t* state);
 void emulate_op(emu_state_t* state);
@@ -70,8 +71,14 @@ void PUSH(uint8_t reg_1, uint8_t reg_2, emu_state_t* state);
 void CALL(uint16_t address, emu_state_t* state);
 
 
+
 int main(const int argc, char** argv)
 {
+
+	emu_state_t* state = new_state();
+	/* ... */
+
+	delete_state(state);
 	return 0;
 }
 
@@ -83,13 +90,35 @@ int main(const int argc, char** argv)
 
 
 
+emu_state_t* new_state(void)
+{
+	emu_state_t* state = malloc(sizeof(emu_state_t));
+	if (state == NULL) {
+		fprintf(stderr, "error: unable to create state\n");
+		return NULL;
+	}
+	state->memory = malloc(0x10000);
+	if (state->memory == NULL) {
+		fprintf(stderr, "error: unable to allocate state memory\n");
+		return NULL;
+	}
+	return state;
+}
 
+void delete_state(emu_state_t* state)
+{
+	if (state == NULL) {
+		return;
+	}
+	free(state->memory);
+	free(state);
+}
 
 
 void unrecognized_instruction(emu_state_t* state)
 {
 	if (state == NULL) {
-		fprintf(stderr, "Null state pointer\n");
+		fprintf(stderr, "error: Null state pointer\n");
 		return;
 	}
 	printf("instruction 0x%02x not recognized\n", state->memory[state->pc]);
@@ -100,7 +129,7 @@ void unrecognized_instruction(emu_state_t* state)
 void emulate_op(emu_state_t* state)
 {
 	if (state == NULL) {
-		fprintf(stderr, "Null state pointer\n");
+		fprintf(stderr, "error: Null state pointer\n");
 		exit(1);
 	}
 	unsigned char* instruction = &state->memory[state->pc];
@@ -110,6 +139,9 @@ void emulate_op(emu_state_t* state)
 	uint16_t temp_16;
 	uint8_t  temp_8;
 	bool     temp_1;
+
+	// So we can see which instruction is decoded:
+	disasm_op_8080(state->memory, state->pc, false);
 
 	switch (opcode)
 	{
@@ -1035,9 +1067,16 @@ void emulate_op(emu_state_t* state)
 			break;
 		case 0xff: // RST 7
 			CALL(0x38, state);
-			break;
-			
+			break;		
 	}
+	// display current state
+	printf("Flags\n\tCarry=%d,Parity=%d,Sign=%d,Zero=%d\n",
+		state->flags.carry, state->flags.parity, state->flags.sign,
+		state->flags.zero);
+	printf("Registers\n\tA $%02x B $%02x C $%02x D $%02x E $%02x H $%02x L $%02x SP %04x\n",
+		state->a, state->b, state->c, state->d, state->e, state->h, state->l,
+		state->sp);
+	
 	state->pc += 1;
 
 }
@@ -1053,7 +1092,7 @@ void CALL(uint16_t address, emu_state_t* state)
 void PUSH(uint8_t reg_1, uint8_t reg_2, emu_state_t* state)
 {
 	if (state == NULL) {
-		fprintf(stderr, "Null state ptr passed to PUSH instr\n");
+		fprintf(stderr, "error: Null state ptr passed to PUSH instr\n");
 		exit(1);
 	}
 	state->memory[state->sp - 2] = reg_1;
@@ -1064,11 +1103,11 @@ void PUSH(uint8_t reg_1, uint8_t reg_2, emu_state_t* state)
 void POP(uint8_t* reg_1, uint8_t* reg_2, emu_state_t* state)
 {
 	if (reg_1 == NULL || reg_2 == NULL) {
-		fprintf(stderr, "Null register ptr passed to POP instr\n");
+		fprintf(stderr, "error: Null register ptr passed to POP instr\n");
 		exit(1);
 	} 
 	if (state == NULL) {
-		fprintf(stderr, "Null state ptr passed to POP instr\n");
+		fprintf(stderr, "error: Null state ptr passed to POP instr\n");
 		exit(1);
 	}
 	*reg_1 = state->memory[state->sp];
@@ -1079,7 +1118,7 @@ void POP(uint8_t* reg_1, uint8_t* reg_2, emu_state_t* state)
 void RET(emu_state_t* state)
 {
 	if (state == NULL) {
-		fprintf(stderr, "Null state ptr in RET instruction\n");
+		fprintf(stderr, "error: Null state ptr in RET instruction\n");
 		exit(1);
 	}
 	state->pc = (state->memory[state->sp + 1] << 8) | state->memory[state->sp];
@@ -1089,7 +1128,7 @@ void RET(emu_state_t* state)
 void CMP(uint8_t reg, emu_state_t* state)
 {
 	if (state == NULL) {
-		fprintf(stderr, "Null state pointer in CMP instruction\n");
+		fprintf(stderr, "error: Null state pointer in CMP instruction\n");
 		exit(1);
 	}
 	uint16_t answer = state->a + (~(reg) + 1);
@@ -1117,7 +1156,7 @@ void set_flags_arithmetic(uint16_t value, emu_state_t* state)
 void ORA(uint8_t reg, emu_state_t* state)
 {
 	if (state == NULL) {
-		fprintf(stderr, "Null state pointer in ORA instruction\n");
+		fprintf(stderr, "error: Null state pointer in ORA instruction\n");
 		exit(1);
 	}
 	uint8_t answer = state->a | reg;
@@ -1128,7 +1167,7 @@ void ORA(uint8_t reg, emu_state_t* state)
 void XRA(uint8_t reg, emu_state_t* state)
 {
 	if (state == NULL) {
-		fprintf(stderr, "Null state pointer in XRA instruction\n");
+		fprintf(stderr, "error: Null state pointer in XRA instruction\n");
 		exit(1);
 	}
 	uint8_t answer = state->a ^ reg;
@@ -1139,7 +1178,7 @@ void XRA(uint8_t reg, emu_state_t* state)
 void ANA(uint8_t reg, emu_state_t* state)
 {
 	if (state == NULL) {
-		fprintf(stderr, "Null state pointer in ANA instruction\n");
+		fprintf(stderr, "error: Null state pointer in ANA instruction\n");
 		exit(1);
 	}
 	uint8_t answer = state->a & reg;
@@ -1150,7 +1189,7 @@ void ANA(uint8_t reg, emu_state_t* state)
 void SBB(uint8_t reg, emu_state_t* state)
 {
 	if (state == NULL) {
-		fprintf(stderr, "Null state pointer in SBB instruction\n");
+		fprintf(stderr, "error: Null state pointer in SBB instruction\n");
 		exit(1);
 	}
 	uint16_t answer = state->a + (~(reg) + 1) + (~(state->flags.carry) + 1);
@@ -1161,7 +1200,7 @@ void SBB(uint8_t reg, emu_state_t* state)
 void SUB(uint8_t reg, emu_state_t* state)
 {
 	if (state == NULL) {
-		fprintf(stderr, "Null state pointer in SUB instruction\n");
+		fprintf(stderr, "error: Null state pointer in SUB instruction\n");
 		exit(1);
 	}
 	uint16_t answer = state->a + (~(reg) + 1);
@@ -1172,7 +1211,7 @@ void SUB(uint8_t reg, emu_state_t* state)
 void ADC(uint8_t reg, emu_state_t* state)
 {
 	if (state == NULL) {
-		fprintf(stderr, "Null state pointer in ADC instruction\n");
+		fprintf(stderr, "error: Null state pointer in ADC instruction\n");
 		exit(1);
 	}
 	uint16_t answer = state->a + reg + state->flags.carry;
@@ -1183,7 +1222,7 @@ void ADC(uint8_t reg, emu_state_t* state)
 void ADD(uint8_t reg, emu_state_t* state)
 {
 	if (state == NULL) {
-		fprintf(stderr, "Null state pointer in ADD instruction\n");
+		fprintf(stderr, "error: Null state pointer in ADD instruction\n");
 		exit(1);
 	}
 	uint16_t answer = state->a + reg;
@@ -1194,7 +1233,7 @@ void ADD(uint8_t reg, emu_state_t* state)
 void MOV(uint8_t* to, uint8_t from)
 {
 	if (to == NULL) {
-		fprintf(stderr, "Null 'to' register pointer in MOV instruction\n");
+		fprintf(stderr, "error: Null 'to' register pointer in MOV instruction\n");
 		exit(1);
 	}
 	*to = from;
@@ -1203,11 +1242,11 @@ void MOV(uint8_t* to, uint8_t from)
 void DCX_regpair(uint8_t* reg_1, uint8_t* reg_2)
 {
 	if (reg_1 == NULL) {
-		fprintf(stderr, "Null reg_1 pointer in DCX instruction\n");
+		fprintf(stderr, "error: Null reg_1 pointer in DCX instruction\n");
 		exit(1);
 	}
 	if (reg_2 == NULL) {
-		fprintf(stderr, "Null reg_2 pointer in DCX instruction\n");
+		fprintf(stderr, "error: Null reg_2 pointer in DCX instruction\n");
 		exit(1);
 	}
 	uint16_t temp = join_regpair(*reg_1, *reg_2) - 1;
@@ -1218,7 +1257,7 @@ void DCX_regpair(uint8_t* reg_1, uint8_t* reg_2)
 void DAD_regpair(uint8_t reg_1, uint8_t reg_2, emu_state_t* state)
 {
 	if (state == NULL) {
-		fprintf(stderr, "Null state pointer in DAD instruction\n");
+		fprintf(stderr, "error: Null state pointer in DAD instruction\n");
 		exit(1);
 	}
 	uint32_t temp = join_regpair(state->h, state->l) + join_regpair(reg_1, reg_2);
@@ -1231,11 +1270,11 @@ void DAD_regpair(uint8_t reg_1, uint8_t reg_2, emu_state_t* state)
 void INX_regpair(uint8_t* reg_1, uint8_t* reg_2)
 {
 	if (reg_1 == NULL) {
-		fprintf(stderr, "Null reg_1 pointer in INX instruction\n");
+		fprintf(stderr, "error: Null reg_1 pointer in INX instruction\n");
 		exit(1);
 	}
 	if (reg_2 == NULL) {
-		fprintf(stderr, "Null reg_2 pointer in INX instruction\n");
+		fprintf(stderr, "error: Null reg_2 pointer in INX instruction\n");
 		exit(1);
 	}
 	uint16_t temp = join_regpair(*reg_1, *reg_2) + 1;
@@ -1246,11 +1285,11 @@ void INX_regpair(uint8_t* reg_1, uint8_t* reg_2)
 void MVI_register(uint8_t* reg, uint8_t data, emu_state_t* state)
 {
 	if (state == NULL) {
-		fprintf(stderr, "Null state pointer in MVI instruction\n");
+		fprintf(stderr, "error: Null state pointer in MVI instruction\n");
 		exit(1);
 	}
 	if (reg == NULL) {
-		fprintf(stderr, "Null register pointer in MVI instruction at pc:0x%02x\n", state->pc);
+		fprintf(stderr, "error: Null register pointer in MVI instruction at pc:0x%02x\n", state->pc);
 		exit(1);
 	}
 	*reg = data;
@@ -1260,11 +1299,11 @@ void MVI_register(uint8_t* reg, uint8_t data, emu_state_t* state)
 void INR_register(uint8_t* reg, emu_state_t* state)
 {
 	if (state == NULL) {
-		fprintf(stderr, "Null state pointer in INR instruction\n");
+		fprintf(stderr, "error: Null state pointer in INR instruction\n");
 		exit(1);
 	}
 	if (reg == NULL) {
-		fprintf(stderr, "Null register pointer in INR instruction at pc:0x%02x\n", state->pc);
+		fprintf(stderr, "error: Null register pointer in INR instruction at pc:0x%02x\n", state->pc);
 		exit(1);
 	}
 	uint8_t temp = *reg + 1;
@@ -1278,11 +1317,11 @@ void INR_register(uint8_t* reg, emu_state_t* state)
 void DCR_register(uint8_t* reg, emu_state_t* state)
 {
 	if (state == NULL) {
-		fprintf(stderr, "Null state pointer in DCR instruction\n");
+		fprintf(stderr, "error: Null state pointer in DCR instruction\n");
 		exit(1);
 	}
 	if (reg == NULL) {
-		fprintf(stderr, "Null register pointer in DCR instruction at pc:0x%02x\n", state->pc);
+		fprintf(stderr, "error: Null register pointer in DCR instruction at pc:0x%02x\n", state->pc);
 		exit(1);
 	}
 	uint8_t temp = *reg - 1;

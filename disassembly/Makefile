@@ -1,6 +1,11 @@
-disasm:
-	gcc disasm.c -o disasm
+disasm_test:
+	gcc disasm.c disasm_test.c -o disasm_test
 
-.PHONY: clean
+.PHONY: test clean
+
+test:
+	./disasm_test testfile
+
 clean:
-	rm disasm
+	rm disasm_test
+

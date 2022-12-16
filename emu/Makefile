@@ -1,5 +1,7 @@
+L = ../disassembly
+
 emu:
-	gcc emu.c -o emu
+	gcc -I$L $L/disasm.c emu.c -o emu
 
 .PHONY: clean
 clean:
