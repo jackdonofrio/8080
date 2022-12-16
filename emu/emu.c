@@ -20,9 +20,10 @@ TODO:
 typedef struct flag_set {
 	uint8_t zero;
 	uint8_t sign;
-	uint8_t carry;
 	uint8_t parity;
-	/* ... */
+	uint8_t carry;
+	uint8_t a_carry;
+	uint8_t pad;
 } flag_set;
 
 typedef struct emu_state {
@@ -45,6 +46,8 @@ void unrecognized_instruction(emu_state_t* state);
 void emulate_op(emu_state_t* state);
 uint16_t join_regpair(uint8_t reg_1, uint8_t reg_2);
 bool parity_8(uint8_t n);
+void set_flags_logic(uint8_t value, emu_state_t* state);
+void set_flags_arithmetic(uint16_t value, emu_state_t* state);
 
 void INR_register(uint8_t* reg, emu_state_t* state);
 void DCR_register(uint8_t* reg, emu_state_t* state);
@@ -56,6 +59,16 @@ void MOV(uint8_t* to, uint8_t from);
 void ADD(uint8_t reg, emu_state_t* state);
 void ADC(uint8_t reg, emu_state_t* state);
 void SUB(uint8_t reg, emu_state_t* state);
+void SBB(uint8_t reg, emu_state_t* state);
+void ANA(uint8_t reg, emu_state_t* state);
+void XRA(uint8_t reg, emu_state_t* state);
+void ORA(uint8_t reg, emu_state_t* state);
+void CMP(uint8_t reg, emu_state_t* state);
+void RET(emu_state_t* state);
+void POP(uint8_t* reg_1, uint8_t* reg_2, emu_state_t* state);
+void PUSH(uint8_t reg_1, uint8_t reg_2, emu_state_t* state);
+void CALL(uint16_t address, emu_state_t* state);
+
 
 int main(const int argc, char** argv)
 {
@@ -224,9 +237,10 @@ void emulate_op(emu_state_t* state)
 		case 0x1e: // MVI E,D8  
 			MVI_register(&(state->e), instruction[1], state);
 			break;
-		case 0x1f: // RAR
-			state->flags.carry = state->a & 1;
-			state->a = (state->a >> 1) | (state->a & 0x80);
+		case 0x1f: // RAR // TODO - make sure this is right
+			temp_8 = state->a & 1;
+			state->a = (state->a >> 1) | ((state->flags.carry & 1) << 7);
+			state->flags.carry = temp_8;
 			break;
 		case 0x20: break;
 		case 0x21: // LXI H,D16
@@ -602,13 +616,546 @@ void emulate_op(emu_state_t* state)
 			SUB(state->a, state);
 			break;
 		case 0x98: // SBB B
-			// TODO
-
+			SBB(state->b, state);
 			break;
-		/* ... */
+		case 0x99: // SBB C
+			SBB(state->c, state);
+			break;
+		case 0x9a: // SBB D
+			SBB(state->d, state);
+			break;
+		case 0x9b: // SBB E
+			SBB(state->e, state);
+			break;
+		case 0x9c: // SBB H
+			SBB(state->h, state);
+			break;
+		case 0x9d: // SBB L
+			SBB(state->l, state);
+			break;
+		case 0x9e: // SBB M
+			SBB(state->memory[join_regpair(state->h, state->l)], state);
+			break;
+		case 0x9f: // SBB A
+			SBB(state->a, state);
+			break;
+		case 0xa0: // ANA B
+			ANA(state->b, state);
+			break; 
+		case 0xa1: // ANA C
+			ANA(state->c, state);
+			break;
+		case 0xa2: // ANA D
+			ANA(state->d, state);
+			break;
+		case 0xa3: // ANA E
+			ANA(state->e, state);
+			break;
+		case 0xa4: // ANA H
+			ANA(state->h, state);
+			break;
+		case 0xa5: // ANA L
+			ANA(state->l, state);
+			break;
+		case 0xa6: // ANA M
+			ANA(state->memory[join_regpair(state->h, state->l)], state);
+			break;
+		case 0xa7: // ANA A
+			ANA(state->a, state);
+			break;
+		case 0xa8: // XRA B
+			XRA(state->b, state);
+			break;
+		case 0xa9: // XRA C
+			XRA(state->c, state);
+			break;
+		case 0xaa: // XRA D
+			XRA(state->d, state);
+			break;
+		case 0xab: // XRA E
+			XRA(state->e, state);
+			break;
+		case 0xac: // XRA H
+			XRA(state->h, state);
+			break;
+		case 0xad: // XRA L
+			XRA(state->l, state);
+			break;
+		case 0xae: // XRA M
+			XRA(state->memory[join_regpair(state->h, state->l)], state);
+			break;
+		case 0xaf: // XRA A
+			XRA(state->a, state);
+			break;
+		case 0xb0: // ORA B
+			ORA(state->b, state);
+			break;
+		case 0xb1: // ORA C
+			ORA(state->c, state);
+			break;
+		case 0xb2: // ORA D
+			ORA(state->d, state);
+			break;
+		case 0xb3: // ORA E
+			ORA(state->e, state);
+			break;
+		case 0xb4: // ORA H
+			ORA(state->h, state);
+			break;
+		case 0xb5: // ORA L
+			ORA(state->l, state);
+			break;
+		case 0xb6: // ORA M
+			ORA(state->memory[join_regpair(state->h, state->l)], state);
+			break;
+		case 0xb7: // ORA A
+			ORA(state->a, state);
+			break;
+		case 0xb8: // CMP B
+			CMP(state->b, state);
+			break;
+		case 0xb9: // CMP C
+			CMP(state->c, state);
+			break;
+		case 0xba: // CMP D
+			CMP(state->d, state);
+			break;
+		case 0xbb: // CMP E
+			CMP(state->e, state);
+			break;
+		case 0xbc: // CMP H
+			CMP(state->h, state);
+			break;
+		case 0xbd: // CMP L
+			CMP(state->l, state);
+			break;
+		case 0xbe: // CMP M
+			CMP(state->memory[join_regpair(state->h, state->l)], state);
+			break;
+		case 0xbf: // CMP A 
+			CMP(state->a, state);
+			break;
+		case 0xc0: // RNZ
+			if (state->flags.zero == 0)
+			{
+				RET(state);
+			}
+			break;
+		case 0xc1: // POP B
+			// state->c = state->memory[state->sp];
+			// state->b = state->memory[state->sp + 1];
+			// state->sp += 2;
+			POP(&(state->c), &(state->b), state);
+			break;
+		case 0xc2: // JNZ adr
+			if (state->flags.zero == 0)
+			{
+				state->pc = (instruction[2] << 8) | instruction[1];
+			} else {
+				state->pc += 2;
+			}
+			break;
+		case 0xc3: // JMP adr
+			state->pc = (instruction[2] << 8) | instruction[1];
+			break;
+		case 0xc4: // CNZ adr
+			if (state->flags.zero == 0) {
+				CALL((instruction[2] << 8) | instruction[1], state);
+			} else {
+				state->pc += 2;
+			}
+			break;
+		case 0xc5: // PUSH B
+			PUSH(state->c, state->b, state);
+			break;
+		case 0xc6: // ADI D8
+			ADD(instruction[1], state);
+			state->pc++;
+			break;
+		case 0xc7: // RST 0
+			CALL(0x0, state);
+			break;
+		case 0xc8: // RZ
+			if (state->flags.zero) {
+				RET(state);
+			}
+		case 0xc9: // RET
+			RET(state);
+			break;
+		case 0xca: // JZ adr
+			if (state->flags.zero) {
+				state->pc = (instruction[2] << 8) | instruction[1];
+			} else {
+				state->pc += 2;
+			}
+			break;
+		case 0xcb: break;
+		case 0xcc: // CZ adr
+			if (state->flags.zero) {
+				CALL((instruction[2] << 8) | instruction[1], state);
+			} else {
+				state->pc += 2;
+			}
+			break;
+		case 0xcd: // CALL adr
+			CALL((instruction[2] << 8) | instruction[1], state);
+			break;
+		case 0xce: // ACI D8
+			ADC(instruction[1], state);
+			state->pc++;
+			break;
+		case 0xcf: // RST 1
+			CALL(0x8, state);
+			break;
+		case 0xd0: // RNC
+			if (state->flags.carry == 0) {
+				RET(state);
+			} 
+			break;
+		case 0xd1: // POP D
+			POP(&(state->e), &(state->d), state);
+			break;
+		case 0xd2: // JNC adr
+			if (state->flags.carry == 0) {
+				state->pc = (instruction[2] << 8) | instruction[1];
+			} else {
+				state->pc += 2;
+			}
+		case 0xd3: // OUT D8
+			// TODO
+			state->pc++;
+			break;
+		case 0xd4: // CNC adr
+			if (state->flags.carry == 0) {
+				CALL((instruction[2] << 8) | instruction[1], state);
+			} else {
+				state->pc += 2;
+			}
+			break;
+		case 0xd5: // PUSH D
+			PUSH(state->e, state->d, state);
+			break;
+		case 0xd6: // SUI D8
+			SUB(instruction[1], state);
+			state->pc++;
+			break;
+		case 0xd7: // RST 2
+			CALL(0x10, state);
+			break;
+		case 0xd8: // RC
+			if (state->flags.carry) {
+				RET(state);
+			}
+			break;
+		case 0xd9: break;
+		case 0xda: // JC adr
+			if (state->flags.carry) {
+				state->pc = (instruction[2] << 8) | instruction[1];
+			} else {
+				state->pc += 2;
+			}
+			break;
+		case 0xdb: // IN D8
+
+			// TODO
+			state->pc++;
+			break;
+		case 0xdc: // CC adr
+			if (state->flags.carry) {
+				CALL((instruction[2] << 8) | instruction[1], state);
+			} else {
+				state->pc += 2;
+			}
+			break;
+		case 0xdd: break;
+		case 0xde: // SBI D8
+			SBB(instruction[1], state);
+			state->pc += 1;
+			break;
+		case 0xdf: // RST 3
+			CALL(0x18, state);
+			break;
+		case 0xe0: // RPO 
+			if (state->flags.parity == 0) {
+				RET(state);
+			}
+			break;
+		case 0xe1: // POP H
+			POP(&(state->l), &(state->h), state);
+			break;
+		case 0xe2: // JPO adr
+			if (state->flags.parity == 0) {
+				state->pc = (instruction[2] << 8) | instruction[1];
+			} else {
+				state->pc += 2;
+			}
+			break;
+		case 0xe3: // XTHL
+			temp_8 = state->l;
+			state->l = state->memory[state->sp];
+			state->memory[state->sp] = temp_8;
+			temp_8 = state->h;
+			state->h = state->memory[state->sp + 1];
+			state->memory[state->sp + 1] = temp_8;
+			break;
+		case 0xe4: // CPO adr
+			if (state->flags.parity == 0) {
+				CALL((instruction[2] << 8) | instruction[1], state);
+			} else {
+				state->sp += 2;
+			}
+			break;
+		case 0xe5: // PUSH H
+			PUSH(state->l, state->h, state);
+			break;
+		case 0xe6: // ANI D8
+			ANA(instruction[1], state);
+			state->sp++;
+			break;
+		case 0xe7: // RST 4
+			CALL(0x20, state);
+			break;
+		case 0xe8: // RPE
+			if (state->flags.parity) {
+				RET(state);
+			}
+			break;
+		case 0xe9: // PCHL
+			state->pc = (state->h << 8) | state->l;
+			break;
+		case 0xea: // JPE adr
+			if (state->flags.parity) {
+				state->pc = (instruction[2] << 8) | instruction[1];
+			} else {
+				state->pc += 2;
+			}
+			break;
+		case 0xeb: // XCHG
+			temp_8 = state->h;
+			state->h = state->d;
+			state->d = temp_8;
+			temp_8 = state->l;
+			state->l = state->e;
+			state->e = temp_8;
+			break;
+		case 0xec: // CPE adr
+			if (state->flags.parity) {
+				CALL((instruction[2] << 8) | instruction[1], state);
+			} else {
+				state->pc += 2;
+			}
+			break;
+		case 0xed: break;
+		case 0xee: // XRI D8
+			XRA(instruction[1], state);
+			state->pc++;
+			break;
+		case 0xef: // RST 5
+			CALL(0x28, state);
+			break;
+		case 0xf0: // RP
+			if (state->flags.sign == 0) {
+				RET(state);
+			}
+			break;
+		case 0xf1: // POP PSW
+			state->a = state->memory[state->sp + 1];
+			temp_8 = state->memory[state->sp];
+			state->flags.zero =   (0x01 == (temp_8 & 0x01));
+			state->flags.sign =   (0x02 == (temp_8 & 0x02));
+			state->flags.parity = (0x04 == (temp_8 & 0x04));
+			state->flags.carry =  (0x08 == (temp_8 & 0x08));
+			state->flags.a_carry =(0x10 == (temp_8 & 0x10));
+			state->sp += 2;
+			break;
+		case 0xf2: // JP ADR
+			if (state->flags.sign == 0) {
+				state->pc = (instruction[2] << 8) | instruction[1];
+			} else {
+				state->pc += 2;
+			}
+			break;
+		case 0xf3: // DI
+			// TODO
+			break;
+		case 0xf4: // CP adr
+			if (state->flags.sign == 0) {
+				CALL((instruction[2] << 8) | instruction[1], state);
+			} else {
+				state->pc += 2;
+			}
+			break;
+		case 0xf5: // PUSH PSW
+			temp_8 = (
+				state->flags.zero & 1 |
+				((state->flags.sign & 1) << 1) |
+				((state->flags.parity & 1) << 2) |
+				((state->flags.carry & 1) << 3) | 
+				((state->flags.a_carry & 1) << 4)
+			);
+			state->memory[state->sp - 2] = temp_8;
+			state->memory[state->sp - 1] = state->a;
+			state->sp -= 2;
+			break;
+		case 0xf6: // ORI D8
+			ORA(instruction[1], state);
+			state->sp++;
+			break;
+		case 0xf7: // RST ^
+			CALL(0x30, state);
+			break;
+		case 0xf8: // RM
+			if (state->flags.sign) {
+				RET(state);
+			}
+			break;
+		case 0xf9: // SPHL
+			state->sp = join_regpair(state->h, state->l);
+			break;
+		case 0xfa: // JM adr
+			if (state->flags.sign) {
+				state->pc = (instruction[2] << 8) | instruction[1];
+			} else {
+				state->pc += 2;
+			}
+			break;
+		case 0xfb: // EI
+			// TODO
+			break;
+		case 0xfc: // CM adr
+			if (state->flags.sign) {
+				CALL((instruction[2] << 8) | instruction[1], state);
+			} else {
+				state->pc += 2;
+			}
+			break;
+		case 0xfd: break; // NOP
+		case 0xfe: // CPI D8
+			CMP(instruction[1], state);
+			break;
+		case 0xff: // RST 7
+			CALL(0x38, state);
+			break;
+			
 	}
 	state->pc += 1;
 
+}
+
+void CALL(uint16_t address, emu_state_t* state)
+{
+	// push pc on top of stack
+	// then jump to called address
+	PUSH( (state->pc & 0xff), (state->pc >> 8) & 0xff, state);
+	state->pc = address;
+}
+
+void PUSH(uint8_t reg_1, uint8_t reg_2, emu_state_t* state)
+{
+	if (state == NULL) {
+		fprintf(stderr, "Null state ptr passed to PUSH instr\n");
+		exit(1);
+	}
+	state->memory[state->sp - 2] = reg_1;
+	state->memory[state->sp - 1] = reg_2;
+	state->sp -= 2;
+}
+
+void POP(uint8_t* reg_1, uint8_t* reg_2, emu_state_t* state)
+{
+	if (reg_1 == NULL || reg_2 == NULL) {
+		fprintf(stderr, "Null register ptr passed to POP instr\n");
+		exit(1);
+	} 
+	if (state == NULL) {
+		fprintf(stderr, "Null state ptr passed to POP instr\n");
+		exit(1);
+	}
+	*reg_1 = state->memory[state->sp];
+	*reg_2 = state->memory[state->sp + 1];
+	state->sp += 2;
+}
+
+void RET(emu_state_t* state)
+{
+	if (state == NULL) {
+		fprintf(stderr, "Null state ptr in RET instruction\n");
+		exit(1);
+	}
+	state->pc = (state->memory[state->sp + 1] << 8) | state->memory[state->sp];
+	state->sp += 2;
+}
+
+void CMP(uint8_t reg, emu_state_t* state)
+{
+	if (state == NULL) {
+		fprintf(stderr, "Null state pointer in CMP instruction\n");
+		exit(1);
+	}
+	uint16_t answer = state->a + (~(reg) + 1);
+	set_flags_arithmetic(answer, state);
+}
+
+void set_flags_logic(uint8_t value, emu_state_t* state)
+{
+	state->flags.zero = value == 0;
+	state->flags.sign = (value & 0x80) != 0;
+	state->flags.carry = state->flags.a_carry = 0;
+	state->flags.parity = parity_8(value);
+	state->a = value;
+}
+
+void set_flags_arithmetic(uint16_t value, emu_state_t* state)
+{
+	state->flags.zero = (value & 0xff) == 0;
+	state->flags.sign = (value & 0x80) != 0;
+	state->flags.carry = value > 0xff;
+	state->flags.parity = parity_8((uint8_t)(value & 0xff));
+	// state->flags.a_carry ...
+}
+
+void ORA(uint8_t reg, emu_state_t* state)
+{
+	if (state == NULL) {
+		fprintf(stderr, "Null state pointer in ORA instruction\n");
+		exit(1);
+	}
+	uint8_t answer = state->a | reg;
+	set_flags_logic(answer, state);
+	state->a = answer;
+}
+
+void XRA(uint8_t reg, emu_state_t* state)
+{
+	if (state == NULL) {
+		fprintf(stderr, "Null state pointer in XRA instruction\n");
+		exit(1);
+	}
+	uint8_t answer = state->a ^ reg;
+	set_flags_logic(answer, state);
+	state->a = answer;
+}
+
+void ANA(uint8_t reg, emu_state_t* state)
+{
+	if (state == NULL) {
+		fprintf(stderr, "Null state pointer in ANA instruction\n");
+		exit(1);
+	}
+	uint8_t answer = state->a & reg;
+	set_flags_logic(answer, state);
+	state->a = answer;
+}
+
+void SBB(uint8_t reg, emu_state_t* state)
+{
+	if (state == NULL) {
+		fprintf(stderr, "Null state pointer in SBB instruction\n");
+		exit(1);
+	}
+	uint16_t answer = state->a + (~(reg) + 1) + (~(state->flags.carry) + 1);
+	set_flags_arithmetic(answer, state);
+	state->a = answer & 0xff;
 }
 
 void SUB(uint8_t reg, emu_state_t* state)
@@ -618,10 +1165,7 @@ void SUB(uint8_t reg, emu_state_t* state)
 		exit(1);
 	}
 	uint16_t answer = state->a + (~(reg) + 1);
-	state->flags.zero = (answer & 0xff) == 0;
-	state->flags.sign = ((answer & 0x80)) != 0;
-	state->flags.carry = (answer > 0xff);
-	state->flags.parity = parity_8((uint8_t)(answer & 0xff));
+	set_flags_arithmetic(answer, state);
 	state->a = answer & 0xff;
 }
 
@@ -632,10 +1176,7 @@ void ADC(uint8_t reg, emu_state_t* state)
 		exit(1);
 	}
 	uint16_t answer = state->a + reg + state->flags.carry;
-	state->flags.zero = (answer & 0xff) == 0;
-	state->flags.sign = ((answer & 0x80)) != 0;
-	state->flags.carry = (answer > 0xff);
-	state->flags.parity = parity_8((uint8_t)(answer & 0xff));
+	set_flags_arithmetic(answer, state);
 	state->a = answer & 0xff;
 }
 
@@ -646,10 +1187,7 @@ void ADD(uint8_t reg, emu_state_t* state)
 		exit(1);
 	}
 	uint16_t answer = state->a + reg;
-	state->flags.zero = (answer & 0xff) == 0;
-	state->flags.sign = ((answer & 0x80)) != 0;
-	state->flags.carry = (answer > 0xff);
-	state->flags.parity = parity_8((uint8_t)(answer & 0xff));
+	set_flags_arithmetic(answer, state);
 	state->a = answer & 0xff;
 }
 
