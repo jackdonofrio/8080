@@ -17,7 +17,7 @@ algorithm adapted from Emulator 101:
 int disasm_op_8080(unsigned char* codebuffer, int pc, bool verbose) {
     unsigned char* instruction = &codebuffer[pc];
     int size = 1; // number of bytes in opcode
-    printf("%04x ", pc);
+    printf("PC:0x%04x INSTR:0x%02x = ", pc, *instruction);
     switch (*instruction) // turn bytecode instruction into 8080
     {
     case 0x00:
