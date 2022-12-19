@@ -3,10 +3,8 @@
 8080 Emulator
 
 TODO:
-	flesh out algorithm for emulation
-		fetch
-		decode   ] these two are done in func described above 
-		execute  ]
+	Test completed instructions.
+	Implement I/O instructions
 */
 
 
@@ -14,7 +12,10 @@ TODO:
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 #include "disasm.h"
+
+#define EMU_SUCCESS 1
 
 typedef struct flag_set {
 	uint8_t zero;
@@ -43,8 +44,10 @@ typedef struct emu_state {
 emu_state_t* new_state(void);
 void delete_state(emu_state_t*);
 
+void read_file_into_memory(emu_state_t* state, char* filename, uint32_t address);
+
 void unrecognized_instruction(emu_state_t* state);
-void emulate_op(emu_state_t* state);
+uint8_t emulate_op(emu_state_t* state);
 uint16_t join_regpair(uint8_t reg_1, uint8_t reg_2);
 bool parity_8(uint8_t n);
 void set_flags_logic(uint8_t value, emu_state_t* state);
@@ -74,20 +77,46 @@ void CALL(uint16_t address, emu_state_t* state);
 
 int main(const int argc, char** argv)
 {
+	bool debug_mode = (argc >= 2 && (strcmp(argv[1], "debug") == 0));
 
 	emu_state_t* state = new_state();
-	/* ... */
+	read_file_into_memory(state, "testfile", 0);
 
+	if (debug_mode)
+	{
+		while(emulate_op(state))
+		{
+			printf("press ENTER for next instruction\n");
+			getchar();
+		}
+	}
+	else {
+		while(emulate_op(state));
+	}
+
+	/* ... */
 	delete_state(state);
 	return 0;
 }
 
-
-
-
-
-
-
+/*
+	reads bytes into memory starting at given address from a file
+*/
+void read_file_into_memory(emu_state_t* state, char* filename, uint32_t address)
+{
+	FILE* fp = fopen(filename, "rb");
+	if (fp == NULL)
+	{
+		fprintf(stderr, "error: unable to open %s\n", filename);
+		exit(1);
+	}
+	fseek(fp, 0L, SEEK_END);
+	int fsize = ftell(fp);
+	fseek(fp, 0L, SEEK_SET);
+	uint8_t* mem_buffer = &(state->memory[address]);
+	fread(mem_buffer, fsize, 1, fp);
+	fclose(fp);
+}
 
 
 emu_state_t* new_state(void)
@@ -126,7 +155,7 @@ void unrecognized_instruction(emu_state_t* state)
 	exit(1);
 }
 
-void emulate_op(emu_state_t* state)
+uint8_t emulate_op(emu_state_t* state)
 {
 	if (state == NULL) {
 		fprintf(stderr, "error: Null state pointer\n");
@@ -1073,12 +1102,12 @@ void emulate_op(emu_state_t* state)
 	printf("Flags\n\tCarry=%d,Parity=%d,Sign=%d,Zero=%d\n",
 		state->flags.carry, state->flags.parity, state->flags.sign,
 		state->flags.zero);
-	printf("Registers\n\tA $%02x B $%02x C $%02x D $%02x E $%02x H $%02x L $%02x SP %04x\n",
+	printf("Registers\n\tA:$%02x B:$%02x C:$%02x D:$%02x E:$%02x H:$%02x L:$%02x SP:%04x\n",
 		state->a, state->b, state->c, state->d, state->e, state->h, state->l,
 		state->sp);
 	
 	state->pc += 1;
-
+	return EMU_SUCCESS;
 }
 
 void CALL(uint16_t address, emu_state_t* state)
