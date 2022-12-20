@@ -77,10 +77,19 @@ void CALL(uint16_t address, emu_state_t* state);
 
 int main(const int argc, char** argv)
 {
-	bool debug_mode = (argc >= 2 && (strcmp(argv[1], "debug") == 0));
+	if (argc != 2 && argc != 3) {
+		fprintf(stderr, "usage: emu filename [debug]\n");
+		exit(1);
+	}
+	bool debug_mode = (argc >= 3 && (strcmp(argv[2], "debug") == 0));
 
 	emu_state_t* state = new_state();
-	read_file_into_memory(state, "testfile", 0);
+	if (argc >= 2) {
+		read_file_into_memory(state, argv[1], 0);
+	}
+	else { 
+		read_file_into_memory(state, "testfile", 0);
+	}
 
 	if (debug_mode)
 	{
