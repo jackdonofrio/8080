@@ -84,12 +84,7 @@ int main(const int argc, char** argv)
 	bool debug_mode = (argc >= 3 && (strcmp(argv[2], "debug") == 0));
 
 	emu_state_t* state = new_state();
-	if (argc >= 2) {
-		read_file_into_memory(state, argv[1], 0);
-	}
-	else { 
-		read_file_into_memory(state, "testfile", 0);
-	}
+	read_file_into_memory(state, argv[1], 0);
 
 	if (debug_mode)
 	{
