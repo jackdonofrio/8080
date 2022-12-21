@@ -578,8 +578,8 @@ uint8_t emulate_op(emu_state_t* state)
 		case 0x75: // MOV M,L
 			MOV(&(state->memory[join_regpair(state->h, state->l)]), state->l);
 			break;
-		case 0x76: // MOV M,M
-			MOV(&(state->memory[join_regpair(state->h, state->l)]), state->memory[join_regpair(state->h, state->l)]);
+		case 0x76: // HLT
+			// TODO
 			break;
 		case 0x77: // MOV M,A
 			MOV(&(state->memory[join_regpair(state->h, state->l)]), state->a);
