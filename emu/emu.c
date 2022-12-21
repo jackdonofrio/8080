@@ -176,6 +176,8 @@ uint8_t emulate_op(emu_state_t* state)
 	// So we can see which instruction is decoded:
 	disasm_op_8080(state->memory, state->pc, false);
 
+	state->pc += 1;
+
 	switch (opcode)
 	{
 		case 0x00: // NOP
@@ -334,7 +336,8 @@ uint8_t emulate_op(emu_state_t* state)
 			break;
 		case 0x27: // DAA
 			// not implemented yet
-			unrecognized_instruction(state);
+			// TODO
+			// unrecognized_instruction(state);
 			break;
 		case 0x28: break;
 		case 0x29: // DAD H
@@ -1110,7 +1113,6 @@ uint8_t emulate_op(emu_state_t* state)
 		state->a, state->b, state->c, state->d, state->e, state->h, state->l,
 		state->sp);
 	
-	state->pc += 1;
 	return EMU_SUCCESS;
 }
 
