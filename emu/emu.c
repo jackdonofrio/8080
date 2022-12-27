@@ -13,9 +13,10 @@ TODO:
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include <sys/time.h>
 #include "disasm.h"
 
-#define EMU_SUCCESS 1
+#define EMU_SUCCESS 0
 
 typedef struct flag_set {
 	uint8_t zero;
@@ -45,9 +46,10 @@ emu_state_t* new_state(void);
 void delete_state(emu_state_t*);
 
 void read_file_into_memory(emu_state_t* state, char* filename, uint32_t address);
+void handle_interrupt(emu_state_t* state, int interrupt_num);
 
 void unrecognized_instruction(emu_state_t* state);
-uint8_t emulate_op(emu_state_t* state);
+uint8_t emulate_op(emu_state_t* state, bool debug_mode);
 uint16_t join_regpair(uint8_t reg_1, uint8_t reg_2);
 bool parity_8(uint8_t n);
 void set_flags_logic(uint8_t value, emu_state_t* state);
@@ -71,6 +73,7 @@ void CMP(uint8_t reg, emu_state_t* state);
 void RET(emu_state_t* state);
 void POP(uint8_t* reg_1, uint8_t* reg_2, emu_state_t* state);
 void PUSH(uint8_t reg_1, uint8_t reg_2, emu_state_t* state);
+void PUSH_PC(emu_state_t* state);
 void CALL(uint16_t address, emu_state_t* state);
 
 
@@ -82,21 +85,33 @@ int main(const int argc, char** argv)
 		exit(1);
 	}
 	bool debug_mode = (argc >= 3 && (strcmp(argv[2], "debug") == 0));
+	struct timeval current_time, last_interrupt;
 
 	emu_state_t* state = new_state();
+	uint8_t done = 0;
 	read_file_into_memory(state, argv[1], 0);
 
-	if (debug_mode)
+	while (!done)
 	{
-		while(emulate_op(state))
+		done = emulate_op(state, debug_mode);
+		// from emu 101 interrupt handling:
+		gettimeofday(&current_time, NULL);
+		if (((double)current_time.tv_sec - (double)last_interrupt.tv_sec) > (1.0 / 60.0)) // if 1/60 of a second has passed
+		{
+			if (state->int_enable)
+			{
+				handle_interrupt(state, 2); // interrupt 2
+				gettimeofday(&current_time, NULL);
+				last_interrupt = current_time;
+			}
+		}
+		if (debug_mode)
 		{
 			printf("press ENTER for next instruction\n");
 			getchar();
 		}
 	}
-	else {
-		while(emulate_op(state));
-	}
+
 
 	/* ... */
 	delete_state(state);
@@ -159,7 +174,7 @@ void unrecognized_instruction(emu_state_t* state)
 	exit(1);
 }
 
-uint8_t emulate_op(emu_state_t* state)
+uint8_t emulate_op(emu_state_t* state, bool debug_mode)
 {
 	if (state == NULL) {
 		fprintf(stderr, "error: Null state pointer\n");
@@ -173,8 +188,12 @@ uint8_t emulate_op(emu_state_t* state)
 	uint8_t  temp_8;
 	bool     temp_1;
 
-	// So we can see which instruction is decoded:
-	disasm_op_8080(state->memory, state->pc, false);
+	if (debug_mode)
+	{
+		// So we can see which instruction is decoded:
+		disasm_op_8080(state->memory, state->pc, false);
+	}
+	
 
 	state->pc += 1;
 
@@ -1069,7 +1088,7 @@ uint8_t emulate_op(emu_state_t* state)
 			ORA(instruction[1], state);
 			state->sp++;
 			break;
-		case 0xf7: // RST ^
+		case 0xf7: // RST 6
 			CALL(0x30, state);
 			break;
 		case 0xf8: // RM
@@ -1120,8 +1139,13 @@ void CALL(uint16_t address, emu_state_t* state)
 {
 	// push pc on top of stack
 	// then jump to called address
-	PUSH( (state->pc & 0xff), (state->pc >> 8) & 0xff, state);
+	PUSH_PC(state);
 	state->pc = address;
+}
+
+void PUSH_PC(emu_state_t* state)
+{
+	PUSH( (state->pc & 0xff), (state->pc >> 8) & 0xff, state);
 }
 
 void PUSH(uint8_t reg_1, uint8_t reg_2, emu_state_t* state)
@@ -1395,4 +1419,17 @@ bool parity_8(uint8_t n)
 	return parity;
 }
 
+/*
+this is simplified to just handle interrupts in one of the RST calls
+rather than having the interrupt pin load in an opcode to execute
+*/
+void handle_interrupt(emu_state_t* state, int interrupt_num)
+{
+	PUSH_PC(state);
+	if (interrupt_num >= 0 && interrupt_num <= 7) {
+		state->pc = 8 * interrupt_num;
+	} else {
+		state->pc = 0; // something went wrong, decide better way to handle
+	}
+}
 
